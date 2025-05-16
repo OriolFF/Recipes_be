@@ -1,0 +1,10 @@
+fastapi
+sqlalchemy
+pydantic-ai
+uvicorn[standard]
+httpx
+pytest
+python-dotenv
+crawl4ai
+openai
+google-generativeai
