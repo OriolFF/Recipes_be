@@ -8,8 +8,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const editRecipeForm = document.getElementById('editRecipeForm');
     const editRecipeIdInput = document.getElementById('editRecipeId');
     const editRecipeNameInput = document.getElementById('editRecipeName');
-    const editRecipeIngredientsInput = document.getElementById('editRecipeIngredients');
-    const editRecipeInstructionsInput = document.getElementById('editRecipeInstructions');
+    // Containers for dynamic fields
+    const editIngredientsContainer = document.getElementById('editIngredientsContainer');
+    const editInstructionsContainer = document.getElementById('editInstructionsContainer');
+    // 'Add' buttons
+    const addIngredientBtn = document.getElementById('addIngredientBtn');
+    const addInstructionBtn = document.getElementById('addInstructionBtn');
 
     async function fetchRecipes() {
         try {
@@ -102,19 +106,78 @@ document.addEventListener('DOMContentLoaded', () => {
             editRecipeModal.style.display = 'none';
         }
         if (editRecipeForm) {
-            editRecipeForm.reset();
+            editRecipeForm.reset(); // Resets name and hidden ID
+        }
+        // Clear dynamic fields
+        if (editIngredientsContainer) editIngredientsContainer.innerHTML = '';
+        if (editInstructionsContainer) editInstructionsContainer.innerHTML = '';
+    }
+
+    function createDynamicInput(text = '', type = 'ingredient') {
+        const inputDiv = document.createElement('div');
+        inputDiv.classList.add('dynamic-input-item');
+
+        const inputField = document.createElement('input');
+        inputField.type = 'text';
+        inputField.value = text;
+        inputField.placeholder = type === 'ingredient' ? 'Enter ingredient' : 'Enter instruction step';
+        inputField.classList.add(`edit-${type}-input`); // For later collection
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button'; // Important to prevent form submission
+        removeBtn.textContent = 'Remove';
+        removeBtn.classList.add('remove-item-btn');
+        removeBtn.onclick = () => inputDiv.remove();
+
+        inputDiv.appendChild(inputField);
+        inputDiv.appendChild(removeBtn);
+        return inputDiv;
+    }
+
+    function addIngredientInput(text = '') {
+        if (editIngredientsContainer) {
+            editIngredientsContainer.appendChild(createDynamicInput(text, 'ingredient'));
         }
     }
 
+    function addInstructionInput(text = '') {
+        if (editInstructionsContainer) {
+            editInstructionsContainer.appendChild(createDynamicInput(text, 'instruction'));
+        }
+    }
+
+    if (addIngredientBtn) {
+        addIngredientBtn.addEventListener('click', () => addIngredientInput());
+    }
+
+    if (addInstructionBtn) {
+        addInstructionBtn.addEventListener('click', () => addInstructionInput());
+    }
+
     function openEditModal(recipe) {
-        if (!editRecipeModal || !editRecipeIdInput || !editRecipeNameInput || !editRecipeIngredientsInput || !editRecipeInstructionsInput) {
+        if (!editRecipeModal || !editRecipeIdInput || !editRecipeNameInput || !editIngredientsContainer || !editInstructionsContainer) {
             console.error('Edit modal elements not found!');
             return;
         }
+        // Clear previous dynamic content
+        editIngredientsContainer.innerHTML = '';
+        editInstructionsContainer.innerHTML = '';
+
         editRecipeIdInput.value = recipe.id;
         editRecipeNameInput.value = recipe.name;
-        editRecipeIngredientsInput.value = recipe.ingredients ? recipe.ingredients.join('\n') : '';
-        editRecipeInstructionsInput.value = recipe.instructions ? recipe.instructions.join('\n') : '';
+
+        if (recipe.ingredients && recipe.ingredients.length > 0) {
+            recipe.ingredients.forEach(ing => addIngredientInput(ing || ''));
+        } else {
+            addIngredientInput(); // Add one empty field if none exist
+        }
+
+        if (recipe.instructions && recipe.instructions.length > 0) {
+            recipe.instructions.forEach(inst => addInstructionInput(inst || ''));
+        } else {
+            addInstructionInput(); // Add one empty field if none exist
+        }
+        
         editRecipeModal.style.display = 'block';
     }
 
@@ -123,8 +186,14 @@ document.addEventListener('DOMContentLoaded', () => {
             event.preventDefault();
             const recipeId = editRecipeIdInput.value;
             const name = editRecipeNameInput.value.trim();
-            const ingredients = editRecipeIngredientsInput.value.split('\n').map(item => item.trim()).filter(item => item);
-            const instructions = editRecipeInstructionsInput.value.split('\n').map(item => item.trim()).filter(item => item);
+            
+            const ingredients = Array.from(editIngredientsContainer.querySelectorAll('.edit-ingredient-input'))
+                                     .map(input => input.value.trim())
+                                     .filter(item => item);
+
+            const instructions = Array.from(editInstructionsContainer.querySelectorAll('.edit-instruction-input'))
+                                     .map(input => input.value.trim())
+                                     .filter(item => item);
 
             if (!name) {
                 alert('Recipe name cannot be empty.');

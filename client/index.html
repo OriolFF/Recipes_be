@@ -31,12 +31,14 @@
                     <input type="text" id="editRecipeName" name="name" required>
                 </div>
                 <div>
-                    <label for="editRecipeIngredients">Ingredients (one per line):</label>
-                    <textarea id="editRecipeIngredients" name="ingredients" rows="5" required></textarea>
+                    <label for="editRecipeIngredients">Ingredients:</label>
+                    <div id="editIngredientsContainer"></div>
+                    <button type="button" id="addIngredientBtn" class="button add-item-btn">+ Add Ingredient</button>
                 </div>
                 <div>
-                    <label for="editRecipeInstructions">Instructions (one step per line):</label>
-                    <textarea id="editRecipeInstructions" name="instructions" rows="8" required></textarea>
+                    <label for="editRecipeInstructions">Instructions:</label>
+                    <div id="editInstructionsContainer"></div>
+                    <button type="button" id="addInstructionBtn" class="button add-item-btn">+ Add Instruction</button>
                 </div>
                 <div class="modal-actions">
                     <button type="submit" class="button">Save Changes</button>

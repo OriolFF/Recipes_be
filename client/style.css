@@ -210,6 +210,58 @@ main {
     min-height: 80px;
 }
 
+/* Styles for Dynamic Input Fields */
+.dynamic-input-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.dynamic-input-item input[type="text"] {
+    flex-grow: 1;
+    margin-right: 0.5rem;
+}
+
+.remove-item-btn {
+    background-color: #f44336; /* Red */
+    color: white;
+    border: none;
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    line-height: 1.2; /* Align text better */
+}
+
+.remove-item-btn:hover {
+    background-color: #d32f2f; /* Darker red */
+}
+
+.add-item-btn {
+    background-color: #4CAF50; /* Green */
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    display: inline-block; /* Or block if you want full width */
+    margin-top: 0.5rem; /* Space above the button */
+}
+
+.add-item-btn:hover {
+    background-color: #45a049; /* Darker green */
+}
+
+/* Ensure containers have some space if empty initially */
+#editIngredientsContainer,
+#editInstructionsContainer {
+    min-height: 40px; /* Placeholder space */
+    padding: 5px;
+    border: 1px dashed #ddd; /* Optional: to see container bounds */
+    margin-bottom: 0.5rem;
+}
+
 .modal-actions {
     margin-top: 1.5rem;
     display: flex;
