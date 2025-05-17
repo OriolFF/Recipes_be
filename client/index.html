@@ -18,6 +18,34 @@
             <div class="loading-spinner" id="loading">Loading recipes...</div>
         </div>
     </main>
+
+    <!-- Edit Recipe Modal -->
+    <div id="editRecipeModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeEditModal()">&times;</span>
+            <h2>Edit Recipe</h2>
+            <form id="editRecipeForm">
+                <input type="hidden" id="editRecipeId" name="recipeId">
+                <div>
+                    <label for="editRecipeName">Recipe Name:</label>
+                    <input type="text" id="editRecipeName" name="name" required>
+                </div>
+                <div>
+                    <label for="editRecipeIngredients">Ingredients (one per line):</label>
+                    <textarea id="editRecipeIngredients" name="ingredients" rows="5" required></textarea>
+                </div>
+                <div>
+                    <label for="editRecipeInstructions">Instructions (one step per line):</label>
+                    <textarea id="editRecipeInstructions" name="instructions" rows="8" required></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="button">Save Changes</button>
+                    <button type="button" class="button secondary-button" onclick="closeEditModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <footer>
         <p>&copy; 2025 Recipe App</p>
     </footer>

@@ -1,11 +1,19 @@
 document.addEventListener('DOMContentLoaded', () => {
     const recipesContainer = document.getElementById('recipes-container');
     const loadingIndicator = document.getElementById('loading');
-    const API_URL = 'http://127.0.0.1:8000/getallrecipes'; // Your FastAPI backend URL
+    const BASE_API_URL = 'http://127.0.0.1:8000'; // Backend API base URL
+
+    // Edit Modal Elements
+    const editRecipeModal = document.getElementById('editRecipeModal');
+    const editRecipeForm = document.getElementById('editRecipeForm');
+    const editRecipeIdInput = document.getElementById('editRecipeId');
+    const editRecipeNameInput = document.getElementById('editRecipeName');
+    const editRecipeIngredientsInput = document.getElementById('editRecipeIngredients');
+    const editRecipeInstructionsInput = document.getElementById('editRecipeInstructions');
 
     async function fetchRecipes() {
         try {
-            const response = await fetch(API_URL);
+            const response = await fetch(`${BASE_API_URL}/getallrecipes`);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -27,18 +35,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Clear previous content (like the loading spinner if it wasn't removed)
         recipesContainer.innerHTML = ''; 
 
         recipes.forEach(recipe => {
             const card = document.createElement('div');
             card.classList.add('recipe-card');
-            card.dataset.recipeId = recipe.id; // Store recipe ID on the card element
+            card.dataset.recipeId = recipe.id;
 
             let imageHtml = '';
             if (recipe.image_url && recipe.image_url !== 'None' && recipe.image_url.toLowerCase() !== 'null') { 
                 imageHtml = `<img src="${recipe.image_url}" alt="${recipe.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`;
-                // Add a placeholder div that will be shown if image fails to load
                 imageHtml += '<div class="placeholder-image" style="height: 200px; background: #eee; display:none; align-items:center; justify-content:center; color:#aaa;">Image not available</div>';
             } else {
                 imageHtml = '<div class="placeholder-image" style="height: 200px; background: #eee; display:flex; align-items:center; justify-content:center; color:#aaa;">No Image Provided</div>';
@@ -51,6 +57,28 @@ document.addEventListener('DOMContentLoaded', () => {
             const instructionsHtml = recipe.instructions && recipe.instructions.length > 0
                 ? `<h3>Instructions</h3><ol>${recipe.instructions.map(inst => `<li>${marked.parse(inst || '')}</li>`).join('')}</ol>`
                 : '<h3>Instructions</h3><p>Not specified.</p>';
+            
+            const actionsDiv = document.createElement('div');
+            actionsDiv.classList.add('recipe-card-actions');
+
+            const deleteButton = document.createElement('button');
+            deleteButton.classList.add('delete-btn');
+            deleteButton.textContent = 'Delete';
+            deleteButton.dataset.id = recipe.id;
+            deleteButton.dataset.name = encodeURIComponent(recipe.name);
+            deleteButton.addEventListener('click', async () => {
+                if (confirm(`Are you sure you want to delete the recipe "${recipe.name}"?`)) {
+                    await deleteRecipeOnServer(recipe.id);
+                }
+            });
+
+            const editButton = document.createElement('button');
+            editButton.classList.add('edit-btn'); // Add a class for styling if needed
+            editButton.textContent = 'Edit';
+            editButton.addEventListener('click', () => openEditModal(recipe));
+            
+            actionsDiv.appendChild(editButton);
+            actionsDiv.appendChild(deleteButton);
 
             card.innerHTML = `
                 ${imageHtml}
@@ -58,41 +86,100 @@ document.addEventListener('DOMContentLoaded', () => {
                     <h2>${recipe.name}</h2>
                     ${ingredientsHtml}
                     ${instructionsHtml}
-                    <div class="recipe-card-actions">
-                        <button class="delete-btn" data-id="${recipe.id}" data-name="${encodeURIComponent(recipe.name)}">Delete</button>
-                    </div>
                 </div>
             `;
+            card.appendChild(actionsDiv); // Append the actions div to the card content or card itself
             recipesContainer.appendChild(card);
         });
 
-        // Add event listeners for delete buttons after they are created
-        addDeleteButtonListeners();
+        // Event listeners for delete buttons are now added inline
+        // addDeleteButtonListeners(); // This function can be removed or adapted if still needed elsewhere
     }
 
-    function addDeleteButtonListeners() {
-        const deleteButtons = document.querySelectorAll('.delete-btn');
-        deleteButtons.forEach(button => {
-            button.addEventListener('click', async (event) => {
-                const recipeId = event.target.dataset.id;
-                const recipeName = decodeURIComponent(event.target.dataset.name);
-                if (confirm(`Are you sure you want to delete the recipe "${recipeName}"?`)) {
-                    await deleteRecipeOnServer(recipeId);
+    // This function is now globally accessible for onclick attributes in HTML
+    window.closeEditModal = function() {
+        if (editRecipeModal) {
+            editRecipeModal.style.display = 'none';
+        }
+        if (editRecipeForm) {
+            editRecipeForm.reset();
+        }
+    }
+
+    function openEditModal(recipe) {
+        if (!editRecipeModal || !editRecipeIdInput || !editRecipeNameInput || !editRecipeIngredientsInput || !editRecipeInstructionsInput) {
+            console.error('Edit modal elements not found!');
+            return;
+        }
+        editRecipeIdInput.value = recipe.id;
+        editRecipeNameInput.value = recipe.name;
+        editRecipeIngredientsInput.value = recipe.ingredients ? recipe.ingredients.join('\n') : '';
+        editRecipeInstructionsInput.value = recipe.instructions ? recipe.instructions.join('\n') : '';
+        editRecipeModal.style.display = 'block';
+    }
+
+    if (editRecipeForm) {
+        editRecipeForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const recipeId = editRecipeIdInput.value;
+            const name = editRecipeNameInput.value.trim();
+            const ingredients = editRecipeIngredientsInput.value.split('\n').map(item => item.trim()).filter(item => item);
+            const instructions = editRecipeInstructionsInput.value.split('\n').map(item => item.trim()).filter(item => item);
+
+            if (!name) {
+                alert('Recipe name cannot be empty.');
+                return;
+            }
+
+            const updatePayload = {
+                name: name,
+                ingredients: ingredients,
+                instructions: instructions
+                // image_url is not editable for now
+            };
+
+            try {
+                const response = await fetch(`${BASE_API_URL}/recipes/${recipeId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(updatePayload),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`HTTP error! status: ${response.status}, Message: ${errorData.detail || 'Failed to update'}`);
                 }
-            });
+                
+                const updatedRecipe = await response.json(); // Get the updated recipe
+                console.log('Recipe updated successfully:', updatedRecipe);
+                closeEditModal();
+                fetchRecipes(); // Refresh the list to show changes
+                alert('Recipe updated successfully!');
+
+            } catch (error) {
+                console.error('Error updating recipe:', error);
+                alert(`Failed to update recipe: ${error.message}`);
+            }
         });
     }
 
     async function deleteRecipeOnServer(recipeId) {
         try {
-            const response = await fetch(`${API_URL.replace('/getallrecipes', '/deleterecipe')}/${recipeId}`, {
+            const response = await fetch(`${BASE_API_URL}/deleterecipe/${recipeId}`, {
                 method: 'DELETE',
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
+                const errorData = await response.json(); // Try to get error detail
                 throw new Error(`HTTP error! status: ${response.status}, Message: ${errorData.detail || 'Failed to delete'}`);
             }
+            
+            // No need to parse JSON for a successful DELETE if it returns no body or 204
+            // For 200 with message, this is fine:
+            // const result = await response.json(); 
+            // console.log(result.message);
 
             // If successful, remove the recipe card from the UI
             const cardToRemove = document.querySelector(`.recipe-card[data-recipe-id="${recipeId}"]`);
@@ -102,14 +189,12 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 console.warn(`Could not find card for recipe ID ${recipeId} to remove from UI.`);
             }
-            // Optionally, show a success message to the user
-            // alert(`Recipe ID ${recipeId} deleted successfully.`);
-
         } catch (error) {
             console.error('Error deleting recipe:', error);
             alert(`Failed to delete recipe: ${error.message}`);
         }
     }
 
+    // Initial fetch of recipes
     fetchRecipes();
 });
