@@ -63,3 +63,38 @@ def get_recipe_by_url(db: Session, url: str) -> RecipeDB | None:
 def get_all_recipes_from_db(db: Session) -> List[RecipeDB]:
     """Fetches all recipes from the database."""
     return db.query(RecipeDB).all()
+
+def delete_recipe_from_db(db: Session, recipe_id: int) -> bool:
+    """Deletes a recipe from the database by its ID."""
+    recipe_to_delete = db.query(RecipeDB).filter(RecipeDB.id == recipe_id).first()
+    if recipe_to_delete:
+        db.delete(recipe_to_delete)
+        db.commit()
+        print(f"DATABASE: Deleted recipe with ID {recipe_id}.")
+        return True
+    print(f"DATABASE: Recipe with ID {recipe_id} not found for deletion.")
+    return False
+
+# Example usage (optional, for testing directly)
+if __name__ == '__main__':
+    create_db_and_tables()
+    db = SessionLocal()
+
+    # Add a dummy recipe (if needed for testing delete)
+    # dummy_recipe = RecipeDB(name="Test Delete Recipe", source_url="http://example.com/delete")
+    # db.add(dummy_recipe)
+    # db.commit()
+    # db.refresh(dummy_recipe)
+    # print(f"Added dummy recipe with ID: {dummy_recipe.id}")
+
+    # Test deleting a recipe (replace ID with an actual ID from your DB)
+    # if delete_recipe_from_db(db, recipe_id=1): # Replace 1 with an existing ID
+    #     print("Successfully deleted recipe from DB.")
+    # else:
+    #     print("Failed to delete recipe from DB or recipe not found.")
+
+    # Query all recipes to verify
+    # all_recipes = get_all_recipes_from_db(db)
+    # print(f"Current recipes in DB after potential delete: {[(r.id, r.name) for r in all_recipes]}")
+
+    db.close()

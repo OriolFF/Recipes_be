@@ -97,6 +97,28 @@ async def get_all_recipes_endpoint(
         print(f"Backend: Returning {len(recipes)} recipes.")
     return recipes
 
+@app.delete("/deleterecipe/{recipe_id}", status_code=200)
+async def delete_recipe_endpoint(recipe_id: int, service: RecipeService = Depends(RecipeService), db: Session = Depends(get_db)):
+    """Deletes a specific recipe by its ID."""
+    print(f"BACKEND: Received request to delete recipe with ID: {recipe_id}")
+    # Note: The `db: Session = Depends(get_db)` is somewhat redundant here if RecipeService handles its own session,
+    # but it's harmless and could be used for pre-checks if needed.
+    # For consistency, RecipeService's delete_recipe method will manage its own session via get_db.
+    
+    success = service.delete_recipe(recipe_id=recipe_id, db_session_generator=lambda: iter([db])) # Pass the existing session
+    
+    if not success:
+        print(f"BACKEND: Recipe ID {recipe_id} not found or failed to delete.")
+        raise HTTPException(status_code=404, detail=f"Recipe with ID {recipe_id} not found or could not be deleted.")
+    
+    print(f"BACKEND: Successfully deleted recipe ID {recipe_id}.")
+    return {"message": f"Recipe with ID {recipe_id} deleted successfully."}
+
+# Health check endpoint (optional but good practice)
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
 # Example of how to run for local testing, if desired:
 # if __name__ == "__main__":
 #     import uvicorn

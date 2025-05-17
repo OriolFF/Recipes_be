@@ -87,6 +87,28 @@ main {
     margin-bottom: 0.3rem;
 }
 
+.recipe-card-actions {
+    margin-top: auto; /* Pushes actions to the bottom of the card content */
+    padding-top: 1rem; /* Adds some space above the button */
+    display: flex;
+    justify-content: flex-end; /* Aligns button to the right */
+}
+
+.delete-btn {
+    background-color: #d9534f; /* Red color for delete */
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background-color 0.2s ease;
+}
+
+.delete-btn:hover {
+    background-color: #c9302c; /* Darker red on hover */
+}
+
 .loading-spinner {
     text-align: center;
     font-size: 1.2rem;

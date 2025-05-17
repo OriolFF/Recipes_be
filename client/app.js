@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
         recipes.forEach(recipe => {
             const card = document.createElement('div');
             card.classList.add('recipe-card');
+            card.dataset.recipeId = recipe.id; // Store recipe ID on the card element
 
             let imageHtml = '';
             if (recipe.image_url && recipe.image_url !== 'None' && recipe.image_url.toLowerCase() !== 'null') { 
@@ -57,10 +58,57 @@ document.addEventListener('DOMContentLoaded', () => {
                     <h2>${recipe.name}</h2>
                     ${ingredientsHtml}
                     ${instructionsHtml}
+                    <div class="recipe-card-actions">
+                        <button class="delete-btn" data-id="${recipe.id}" data-name="${encodeURIComponent(recipe.name)}">Delete</button>
+                    </div>
                 </div>
             `;
             recipesContainer.appendChild(card);
         });
+
+        // Add event listeners for delete buttons after they are created
+        addDeleteButtonListeners();
+    }
+
+    function addDeleteButtonListeners() {
+        const deleteButtons = document.querySelectorAll('.delete-btn');
+        deleteButtons.forEach(button => {
+            button.addEventListener('click', async (event) => {
+                const recipeId = event.target.dataset.id;
+                const recipeName = decodeURIComponent(event.target.dataset.name);
+                if (confirm(`Are you sure you want to delete the recipe "${recipeName}"?`)) {
+                    await deleteRecipeOnServer(recipeId);
+                }
+            });
+        });
+    }
+
+    async function deleteRecipeOnServer(recipeId) {
+        try {
+            const response = await fetch(`${API_URL.replace('/getallrecipes', '/deleterecipe')}/${recipeId}`, {
+                method: 'DELETE',
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`HTTP error! status: ${response.status}, Message: ${errorData.detail || 'Failed to delete'}`);
+            }
+
+            // If successful, remove the recipe card from the UI
+            const cardToRemove = document.querySelector(`.recipe-card[data-recipe-id="${recipeId}"]`);
+            if (cardToRemove) {
+                cardToRemove.remove();
+                console.log(`Recipe ID ${recipeId} deleted successfully from UI.`);
+            } else {
+                console.warn(`Could not find card for recipe ID ${recipeId} to remove from UI.`);
+            }
+            // Optionally, show a success message to the user
+            // alert(`Recipe ID ${recipeId} deleted successfully.`);
+
+        } catch (error) {
+            console.error('Error deleting recipe:', error);
+            alert(`Failed to delete recipe: ${error.message}`);
+        }
     }
 
     fetchRecipes();
