@@ -1,5 +1,8 @@
 import asyncio
 import sys
+from typing import List
+from dotenv import load_dotenv
+load_dotenv()
 
 # Set asyncio event loop policy for Windows if applicable, at the earliest possible point
 if sys.platform == "win32":
@@ -45,17 +48,18 @@ class UrlRequest(BaseModel):
     url: HttpUrl
 
 @app.post("/obtainrecipe", response_model=RecipePydantic)
-async def obtain_recipe_endpoint(request: UrlRequest, service: RecipeService = Depends(RecipeService)):
+async def obtain_recipe_endpoint(request: UrlRequest, recipe_service: RecipeService = Depends(RecipeService)):
     try:
         print(f"Backend: Received request for URL: {request.url}")
-        processed_recipe = await service.process_url_and_store_recipe(str(request.url))
+        url_str = str(request.url)
+        db_recipe_pydantic = await recipe_service.process_url_and_store_recipe(url=url_str, db_session_generator=get_db)
 
-        if processed_recipe:
-            print(f"Backend: Successfully processed and stored recipe: {processed_recipe.name}")
-            return processed_recipe 
-        else:
-            print(f"Backend: Failed to process recipe for URL: {request.url}")
+        if db_recipe_pydantic is None:
+            print(f"Backend: Failed to process recipe for URL: {url_str}")
             raise HTTPException(status_code=422, detail="Failed to process and store recipe. Check server logs for details.")
+        else:
+            print(f"Backend: Successfully processed and returned recipe for URL: {url_str}")
+            return db_recipe_pydantic
     except HTTPException as http_exc: 
         raise http_exc
     except Exception as e:
@@ -63,6 +67,20 @@ async def obtain_recipe_endpoint(request: UrlRequest, service: RecipeService = D
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
+
+@app.get("/getallrecipes", response_model=List[RecipePydantic])
+async def get_all_recipes_endpoint(
+    recipe_service: RecipeService = Depends(RecipeService)
+):
+    print("Backend: Received request for /getallrecipes")
+    recipes = await recipe_service.get_all_recipes(db_session_generator=get_db)
+    if not recipes:
+        print("Backend: No recipes found or error occurred.")
+        # Optionally, could return a 404 if no recipes found, but an empty list is also valid for "all"
+        # raise HTTPException(status_code=404, detail="No recipes found")
+    else:
+        print(f"Backend: Returning {len(recipes)} recipes.")
+    return recipes
 
 # Example of how to run for local testing, if desired:
 # if __name__ == "__main__":

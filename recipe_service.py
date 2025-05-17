@@ -1,10 +1,10 @@
-from typing import Optional, Type
+from typing import Optional, Type, List
 from pydantic import ValidationError # HttpUrl not directly used here, but RecipePydantic might use it.
 import httpx # For catching specific exceptions
 
 from .html_processor import HtmlFetcher, MarkdownConverter
 from .recipe_agent import RecipeExtractorAgent
-from .database import get_db, add_recipe_to_db, get_recipe_by_url, RecipeDB # RecipeDB for type hint, added get_recipe_by_url
+from .database import get_db, add_recipe_to_db, get_recipe_by_url, get_all_recipes_from_db, RecipeDB # RecipeDB for type hint, added get_recipe_by_url and get_all_recipes_from_db
 from .models.recipe import Recipe as RecipePydantic # For type hinting and validation
 
 class RecipeService:
@@ -71,3 +71,30 @@ class RecipeService:
             if db:
                 db.close()
                 print(f"RECIPE_SERVICE: Database session closed for URL: {url}")
+
+    async def get_all_recipes(self, db_session_generator = get_db) -> List[RecipePydantic]:
+        print(f"RECIPE_SERVICE: Fetching all recipes from database...")
+        db = next(db_session_generator())
+        try:
+            db_recipes: List[RecipeDB] = get_all_recipes_from_db(db=db)
+            pydantic_recipes: List[RecipePydantic] = [
+                RecipePydantic(
+                    name=db_recipe.name,
+                    ingredients=db_recipe.ingredients,
+                    instructions=db_recipe.instructions,
+                    image_url=db_recipe.image_url,
+                    # source_url is not part of RecipePydantic, so not included here
+                )
+                for db_recipe in db_recipes
+            ]
+            print(f"RECIPE_SERVICE: Found {len(pydantic_recipes)} recipes.")
+            return pydantic_recipes
+        except Exception as e_general:
+            print(f"An unexpected error occurred while fetching all recipes: {e_general}")
+            import traceback
+            traceback.print_exc()
+            return [] # Return empty list on error
+        finally:
+            if db:
+                db.close()
+                print(f"RECIPE_SERVICE: Database session closed for get_all_recipes.")

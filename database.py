@@ -59,3 +59,7 @@ def add_recipe_to_db(db: Session, recipe_data: RecipePydantic, source_url: str):
 def get_recipe_by_url(db: Session, url: str) -> RecipeDB | None:
     """Fetches a recipe from the database by its source_url."""
     return db.query(RecipeDB).filter(RecipeDB.source_url == url).first()
+
+def get_all_recipes_from_db(db: Session) -> List[RecipeDB]:
+    """Fetches all recipes from the database."""
+    return db.query(RecipeDB).all()
