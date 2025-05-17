@@ -75,6 +75,27 @@ def delete_recipe_from_db(db: Session, recipe_id: int) -> bool:
     print(f"DATABASE: Recipe with ID {recipe_id} not found for deletion.")
     return False
 
+def get_recipe_by_id_from_db(db: Session, recipe_id: int) -> RecipeDB | None:
+    """Fetches a recipe from the database by its primary key ID."""
+    return db.query(RecipeDB).filter(RecipeDB.id == recipe_id).first()
+
+def update_recipe_in_db(db: Session, recipe_id: int, update_data: dict) -> RecipeDB | None:
+    """Updates a recipe in the database by its ID with the given data."""
+    db_recipe = db.query(RecipeDB).filter(RecipeDB.id == recipe_id).first()
+    if db_recipe:
+        for key, value in update_data.items():
+            if hasattr(db_recipe, key):
+                setattr(db_recipe, key, value)
+            else:
+                # Optionally, handle or log fields in update_data that don't exist on RecipeDB
+                print(f"DATABASE: Warning - Field '{key}' not found in RecipeDB model during update.")
+        db.commit()
+        db.refresh(db_recipe)
+        print(f"DATABASE: Updated recipe with ID {recipe_id}. Fields updated: {list(update_data.keys())}")
+        return db_recipe
+    print(f"DATABASE: Recipe with ID {recipe_id} not found for update.")
+    return None
+
 # Example usage (optional, for testing directly)
 if __name__ == '__main__':
     create_db_and_tables()

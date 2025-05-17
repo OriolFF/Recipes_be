@@ -5,8 +5,8 @@ import json
 
 from .html_processor import HtmlFetcher, MarkdownConverter
 from .recipe_agent import RecipeExtractorAgent
-from .database import get_db, add_recipe_to_db, get_recipe_by_url, get_all_recipes_from_db, delete_recipe_from_db, RecipeDB # RecipeDB for type hint, added get_recipe_by_url and get_all_recipes_from_db
-from .models.recipe import Recipe as RecipePydantic # For type hinting and validation
+from .database import get_db, add_recipe_to_db, get_recipe_by_url, get_all_recipes_from_db, delete_recipe_from_db, RecipeDB, get_recipe_by_id_from_db, update_recipe_in_db # Added get_recipe_by_id_from_db, update_recipe_in_db
+from .models.recipe import Recipe as RecipePydantic, RecipeUpdate # Added RecipeUpdate
 
 class RecipeService:
     def __init__(self, agent_output_model: Type[RecipePydantic] = RecipePydantic):
@@ -146,6 +146,61 @@ class RecipeService:
         finally:
             db.close()
             print(f"RECIPE_SERVICE: Database session closed for delete_recipe (ID: {recipe_id}).")
+
+    def update_recipe(self, recipe_id: int, recipe_update_data: RecipeUpdate, db_session_generator=get_db) -> Optional[RecipePydantic]:
+        """Updates an existing recipe by its ID using the provided data."""
+        print(f"RECIPE_SERVICE: Attempting to update recipe with ID: {recipe_id}")
+        db = next(db_session_generator())
+        try:
+            # Fetch the existing recipe
+            db_recipe: Optional[RecipeDB] = get_recipe_by_id_from_db(db=db, recipe_id=recipe_id)
+            if not db_recipe:
+                print(f"RECIPE_SERVICE: Recipe ID {recipe_id} not found for update.")
+                return None
+
+            # Create a dictionary of the update data, excluding unset fields
+            update_data = recipe_update_data.model_dump(exclude_unset=True)
+            
+            if not update_data:
+                print(f"RECIPE_SERVICE: No update data provided for recipe ID {recipe_id}. Returning existing recipe.")
+                # Optionally, convert and return the existing recipe if no actual update fields are provided
+                return RecipePydantic(
+                    id=db_recipe.id,
+                    name=db_recipe.name,
+                    ingredients=json.loads(db_recipe.ingredients) if isinstance(db_recipe.ingredients, str) else db_recipe.ingredients, # Handle potential JSON string
+                    instructions=json.loads(db_recipe.instructions) if isinstance(db_recipe.instructions, str) else db_recipe.instructions, # Handle potential JSON string
+                    image_url=str(db_recipe.image_url) if db_recipe.image_url else None
+                )
+
+            print(f"RECIPE_SERVICE: Applying updates to recipe ID {recipe_id}: {update_data}")
+            
+            # Update the database recipe object
+            updated_db_recipe: Optional[RecipeDB] = update_recipe_in_db(db=db, recipe_id=recipe_id, update_data=update_data)
+
+            if not updated_db_recipe:
+                # This case might occur if update_recipe_in_db itself returns None on failure
+                print(f"RECIPE_SERVICE: Failed to apply update in database for recipe ID {recipe_id}.")
+                return None
+
+            print(f"RECIPE_SERVICE: Successfully updated recipe ID {updated_db_recipe.id}.")
+            # Convert the updated DB object back to Pydantic model
+            return RecipePydantic(
+                id=updated_db_recipe.id,
+                name=updated_db_recipe.name,
+                ingredients=json.loads(updated_db_recipe.ingredients) if isinstance(updated_db_recipe.ingredients, str) else updated_db_recipe.ingredients,
+                instructions=json.loads(updated_db_recipe.instructions) if isinstance(updated_db_recipe.instructions, str) else updated_db_recipe.instructions,
+                image_url=str(updated_db_recipe.image_url) if updated_db_recipe.image_url else None
+            )
+        except Exception as e:
+            print(f"RECIPE_SERVICE: Error during update of recipe ID {recipe_id}: {e}")
+            import traceback
+            traceback.print_exc()
+            db.rollback() # Rollback in case of error during update process
+            return None
+        finally:
+            if db:
+                db.close()
+                print(f"RECIPE_SERVICE: Database session closed for update_recipe (ID: {recipe_id}).")
 
 # Example Usage (for direct testing of RecipeService, if needed)
 async def main_service_test():

@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, HttpUrl
 from fastapi.middleware.cors import CORSMiddleware # Added for CORS
 from .recipe_service import RecipeService
-from .models.recipe import Recipe as RecipePydantic 
+from .models.recipe import Recipe as RecipePydantic, RecipeUpdate # Added RecipeUpdate
 from .database import create_db_and_tables, SessionLocal, get_db 
 from sqlalchemy.orm import Session 
 from .logger_config import get_app_logger # Added import
@@ -114,6 +114,20 @@ async def delete_recipe_endpoint(recipe_id: int, service: RecipeService = Depend
     
     logger.info(f"BACKEND: Successfully deleted recipe ID {recipe_id}.")
     return {"message": f"Recipe with ID {recipe_id} deleted successfully."}
+
+@app.put("/recipes/{recipe_id}", response_model=RecipePydantic)
+async def update_recipe_endpoint(recipe_id: int, recipe_data: RecipeUpdate, service: RecipeService = Depends(RecipeService)):
+    """Updates an existing recipe by its ID."""
+    logger.info(f"BACKEND: Received request to update recipe with ID: {recipe_id} with data: {recipe_data.model_dump(exclude_unset=True)}")
+    
+    updated_recipe = service.update_recipe(recipe_id=recipe_id, recipe_update_data=recipe_data, db_session_generator=get_db)
+    
+    if not updated_recipe:
+        logger.warning(f"BACKEND: Recipe ID {recipe_id} not found or failed to update.")
+        raise HTTPException(status_code=404, detail=f"Recipe with ID {recipe_id} not found or could not be updated.")
+    
+    logger.info(f"BACKEND: Successfully updated recipe ID {recipe_id}.")
+    return updated_recipe
 
 # Health check endpoint (optional but good practice)
 @app.get("/health")

@@ -11,3 +11,9 @@ class Recipe(BaseModel):
     # prep_time: Optional[str] = None
     # cook_time: Optional[str] = None
     # servings: Optional[str] = None
+
+class RecipeUpdate(BaseModel):
+    name: Optional[str] = None
+    ingredients: Optional[List[str]] = None
+    instructions: Optional[List[str]] = None
+    image_url: Optional[HttpUrl] = None
