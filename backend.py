@@ -2,6 +2,15 @@ import asyncio
 import sys
 from typing import List
 from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, HttpUrl
+from fastapi.middleware.cors import CORSMiddleware # Added for CORS
+from .recipe_service import RecipeService
+from .models.recipe import Recipe as RecipePydantic 
+from .database import create_db_and_tables, SessionLocal, get_db 
+from sqlalchemy.orm import Session 
+
 load_dotenv()
 
 # Set asyncio event loop policy for Windows if applicable, at the earliest possible point
@@ -17,16 +26,22 @@ if sys.platform == "win32":
 else:
     print("BACKEND (module-level): Not on Windows, skipping Proactor policy setting.")
 
-from fastapi import FastAPI, HTTPException, Depends
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, HttpUrl
+app = FastAPI(
+    title="Recipe API",
+    version="0.1.0",
+    description="An API to fetch, process, and store recipes from URLs."
+)
 
-from .recipe_service import RecipeService
-from .models.recipe import Recipe as RecipePydantic 
-from .database import create_db_and_tables, SessionLocal, get_db 
-from sqlalchemy.orm import Session 
-
-app = FastAPI()
+# Add CORS middleware
+# IMPORTANT: For production, you should restrict origins to your actual frontend domain.
+# Using "*" is generally for development convenience.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
 
 @app.on_event("startup")
 async def startup_event():
