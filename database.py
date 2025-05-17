@@ -6,6 +6,9 @@ from pathlib import Path
 import os
 
 from .models.recipe import Recipe as RecipePydantic
+from .utils.logger_config import get_app_logger
+
+logger = get_app_logger(__name__)
 
 BASE_PACKAGE_DIR = Path(__file__).resolve().parent
 DATABASE_SUBDIR = "database"
@@ -70,9 +73,9 @@ def delete_recipe_from_db(db: Session, recipe_id: int) -> bool:
     if recipe_to_delete:
         db.delete(recipe_to_delete)
         db.commit()
-        print(f"DATABASE: Deleted recipe with ID {recipe_id}.")
+        logger.info(f"Deleted recipe with ID {recipe_id}.")
         return True
-    print(f"DATABASE: Recipe with ID {recipe_id} not found for deletion.")
+    logger.warning(f"Recipe with ID {recipe_id} not found for deletion.")
     return False
 
 def get_recipe_by_id_from_db(db: Session, recipe_id: int) -> RecipeDB | None:
@@ -88,12 +91,12 @@ def update_recipe_in_db(db: Session, recipe_id: int, update_data: dict) -> Recip
                 setattr(db_recipe, key, value)
             else:
                 # Optionally, handle or log fields in update_data that don't exist on RecipeDB
-                print(f"DATABASE: Warning - Field '{key}' not found in RecipeDB model during update.")
+                logger.warning(f"Field '{key}' not found in RecipeDB model during update for recipe ID {recipe_id}.")
         db.commit()
         db.refresh(db_recipe)
-        print(f"DATABASE: Updated recipe with ID {recipe_id}. Fields updated: {list(update_data.keys())}")
+        logger.info(f"Updated recipe with ID {recipe_id}. Fields updated: {list(update_data.keys())}")
         return db_recipe
-    print(f"DATABASE: Recipe with ID {recipe_id} not found for update.")
+    logger.warning(f"Recipe with ID {recipe_id} not found for update.")
     return None
 
 # Example usage (optional, for testing directly)

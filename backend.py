@@ -10,7 +10,7 @@ from .recipe_service import RecipeService
 from .models.recipe import Recipe as RecipePydantic, RecipeUpdate # Added RecipeUpdate
 from .database import create_db_and_tables, SessionLocal, get_db 
 from sqlalchemy.orm import Session 
-from .logger_config import get_app_logger # Added import
+from .utils.logger_config import get_app_logger # Updated import path
 
 load_dotenv()
 
