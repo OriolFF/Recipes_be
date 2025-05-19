@@ -8,3 +8,7 @@ python-dotenv
 crawl4ai
 openai
 google-generativeai
+passlib[bcrypt]
+python-jose[cryptography]
+python-multipart
+email-validator

@@ -1,3 +1,4 @@
+import sys
 from typing import Optional, Type, List
 from pydantic import ValidationError # HttpUrl not directly used here, but RecipePydantic might use it.
 import httpx # For catching specific exceptions
@@ -18,8 +19,8 @@ class RecipeService:
         self.recipe_agent = RecipeExtractorAgent(output_model=agent_output_model)
         self.pydantic_model_for_validation = agent_output_model
 
-    async def process_url_and_store_recipe(self, url: str, db_session_generator = get_db) -> Optional[RecipePydantic]:
-        logger.info(f"Starting recipe processing for URL: {url}")
+    async def process_url_and_store_recipe(self, url: str, user_id: int, db_session_generator = get_db) -> Optional[RecipePydantic]:
+        logger.info(f"Starting recipe processing for URL: {url} by user_id: {user_id}")
         
         db = next(db_session_generator())
         try:
@@ -27,19 +28,18 @@ class RecipeService:
             existing_db_recipe: Optional[RecipeDB] = get_recipe_by_url(db=db, url=url)
             if existing_db_recipe:
                 logger.info(f"Recipe for URL '{url}' found in DB (ID: {existing_db_recipe.id}). Returning cached.")
-                # Ensure ingredients/instructions are lists (they are stored as JSON in RecipeDB)
                 ingredients_list = json.loads(existing_db_recipe.ingredients) if isinstance(existing_db_recipe.ingredients, str) else existing_db_recipe.ingredients
                 instructions_list = json.loads(existing_db_recipe.instructions) if isinstance(existing_db_recipe.instructions, str) else existing_db_recipe.instructions
                 return RecipePydantic(
-                    id=existing_db_recipe.id, # Added ID
+                    id=existing_db_recipe.id,
                     name=existing_db_recipe.name,
                     ingredients=ingredients_list if ingredients_list else [],
                     instructions=instructions_list if instructions_list else [],
-                    image_url=str(existing_db_recipe.image_url) if existing_db_recipe.image_url else None, # Ensure HttpUrl is converted to str if needed, or handle None
-                    source_url=existing_db_recipe.source_url # Added source_url for cached recipe
+                    image_url=str(existing_db_recipe.image_url) if existing_db_recipe.image_url else None,
+                    source_url=existing_db_recipe.source_url
                 )
 
-            logger.info(f"Recipe for URL '{url}' not in cache. Processing...")
+            logger.info(f"Recipe for URL '{url}' not in cache for user {user_id}. Processing...")
             logger.info("Fetching HTML...")
             html_content = await self.html_fetcher.fetch_html(url)
             if not html_content: 
@@ -62,16 +62,11 @@ class RecipeService:
             logger.info(f"Recipe data extracted by agent: {extracted_recipe_data.name}")
 
             validated_recipe = extracted_recipe_data
-            logger.info(f"Recipe '{validated_recipe.name}' validated (by PydanticAI)." ) # Assuming PydanticAI is the underlying mechanism
+            logger.info(f"Recipe '{validated_recipe.name}' validated (by PydanticAI)." )
 
-            logger.info(f"Storing recipe '{validated_recipe.name}' to database with source URL '{url}'...")
-            db_recipe_obj: RecipeDB = add_recipe_to_db(db=db, recipe_data=validated_recipe, source_url=url)
-            logger.info(f"Recipe '{db_recipe_obj.name}' (ID: {db_recipe_obj.id}) stored successfully.")
-            # Return a Pydantic model constructed from the DB object, which includes the ID
-            # Ingredients/instructions in validated_recipe are already lists from PydanticAI model.
-            # db_recipe_obj stores them as JSON, so if we were reading from db_recipe_obj directly here,
-            # we'd need json.loads like in the cached section. But validated_recipe is fine.
-            # The crucial part is to get the ID from db_recipe_obj.
+            logger.info(f"Storing recipe '{validated_recipe.name}' to database with source URL '{url}' for user_id {user_id}...")
+            db_recipe_obj: RecipeDB = add_recipe_to_db(db=db, recipe_data=validated_recipe, source_url=url, user_id=user_id) # Pass user_id
+            logger.info(f"Recipe '{db_recipe_obj.name}' (ID: {db_recipe_obj.id}, UserID: {db_recipe_obj.user_id}) stored successfully.")
             return RecipePydantic(
                 id=db_recipe_obj.id, # Crucial: use the ID from the database object
                 name=validated_recipe.name, # Or db_recipe_obj.name, should be same
@@ -93,14 +88,14 @@ class RecipeService:
         finally:
             if db:
                 db.close()
-                logger.info(f"Database session closed for URL: {url}")
+                logger.info(f"Database session closed for URL: {url}, user_id: {user_id}")
 
-    async def get_all_recipes(self, db_session_generator = get_db) -> List[RecipePydantic]:
-        """Fetches all recipes from the database and converts them to Pydantic models, including their IDs."""
+    async def get_all_recipes(self, user_id: int, db_session_generator = get_db) -> List[RecipePydantic]:
+        """Fetches all recipes for a specific user from the database."""
         db: Session = next(db_session_generator())
-        logger.info("Fetching all recipes from database...")
+        logger.info(f"Fetching all recipes from database for user_id: {user_id}...")
         try:
-            db_recipes: List[RecipeDB] = get_all_recipes_from_db(db=db)
+            db_recipes: List[RecipeDB] = get_all_recipes_from_db(db=db, user_id=user_id)
             pydantic_recipes: List[RecipePydantic] = []
             for db_recipe in db_recipes:
                 ingredients_list = []
@@ -140,88 +135,92 @@ class RecipeService:
                         source_url=db_recipe.source_url # Added source_url
                     )
                 )
-            logger.info(f"Found {len(pydantic_recipes)} recipes.")
+            logger.info(f"Found {len(pydantic_recipes)} recipes for user_id: {user_id}.")
             return pydantic_recipes
         except Exception as e_general:
-            logger.exception(f"An unexpected error occurred while fetching all recipes: {e_general}")
+            logger.exception(f"An unexpected error occurred while fetching recipes for user_id {user_id}: {e_general}")
             return [] # Return empty list on error
         finally:
             if db:
                 db.close()
-                logger.info("Database session closed for get_all_recipes.")
+                logger.info(f"Database session closed for get_all_recipes (user_id: {user_id}).")
 
-    def delete_recipe(self, recipe_id: int, db_session_generator=get_db) -> bool:
-        """Deletes a recipe by its ID using the database service."""
-        logger.info(f"Attempting to delete recipe with ID: {recipe_id}")
+    def delete_recipe(self, recipe_id: int, user_id: int, db_session_generator=get_db) -> bool:
+        """Deletes a recipe by its ID, ensuring ownership."""
+        logger.info(f"Attempting to delete recipe ID: {recipe_id} by user_id: {user_id}")
         db: Session = next(db_session_generator())
         try:
+            recipe_to_delete = get_recipe_by_id_from_db(db=db, recipe_id=recipe_id)
+            if not recipe_to_delete:
+                logger.warning(f"Recipe ID {recipe_id} not found for deletion by user_id: {user_id}.")
+                return False
+            
+            if recipe_to_delete.user_id != user_id:
+                logger.warning(f"User {user_id} does not own recipe {recipe_id}. Deletion denied.")
+                return False
+
             success = delete_recipe_from_db(db=db, recipe_id=recipe_id)
             if success:
-                logger.info(f"Successfully deleted recipe ID {recipe_id}.")
+                logger.info(f"Successfully deleted recipe ID {recipe_id} owned by user_id {user_id}.")
             else:
-                logger.warning(f"Recipe ID {recipe_id} not found for deletion.")
+                logger.error(f"Failed to delete recipe ID {recipe_id} from DB after ownership check for user_id {user_id}.")
             return success
         except Exception as e:
-            logger.exception(f"Error during deletion of recipe ID {recipe_id}: {e}")
-            return False # Or raise HTTPException from here if it's an API-facing error
+            logger.exception(f"Error during deletion of recipe ID {recipe_id} by user_id {user_id}: {e}")
+            return False
         finally:
             db.close()
-            logger.info(f"Database session closed for delete_recipe (ID: {recipe_id}).")
+            logger.info(f"Database session closed for delete_recipe (ID: {recipe_id}, UserID: {user_id}).")
 
-    def update_recipe(self, recipe_id: int, recipe_update_data: RecipeUpdate, db_session_generator=get_db) -> Optional[RecipePydantic]:
-        """Updates an existing recipe by its ID using the provided data."""
-        logger.info(f"Attempting to update recipe with ID: {recipe_id}")
+    def update_recipe(self, recipe_id: int, user_id: int, recipe_update_data: RecipeUpdate, db_session_generator=get_db) -> Optional[RecipePydantic]:
+        """Updates an existing recipe by its ID, ensuring ownership."""
+        logger.info(f"Attempting to update recipe ID: {recipe_id} by user_id: {user_id}")
         db = next(db_session_generator())
         try:
-            # Fetch the existing recipe
             db_recipe: Optional[RecipeDB] = get_recipe_by_id_from_db(db=db, recipe_id=recipe_id)
             if not db_recipe:
-                logger.warning(f"Recipe ID {recipe_id} not found for update.")
+                logger.warning(f"Recipe ID {recipe_id} not found for update by user_id: {user_id}.")
                 return None
 
-            # Create a dictionary of the update data, excluding unset fields
+            if db_recipe.user_id != user_id:
+                logger.warning(f"User {user_id} does not own recipe {recipe_id}. Update denied.")
+                return None
+
             update_data = recipe_update_data.model_dump(exclude_unset=True)
-            
             if not update_data:
-                logger.info(f"No update data provided for recipe ID {recipe_id}. Returning existing recipe.")
-                # Optionally, convert and return the existing recipe if no actual update fields are provided
+                logger.info(f"No update data provided for recipe ID {recipe_id} by user {user_id}. Returning existing recipe.")
                 return RecipePydantic(
                     id=db_recipe.id,
                     name=db_recipe.name,
-                    ingredients=json.loads(db_recipe.ingredients) if isinstance(db_recipe.ingredients, str) else db_recipe.ingredients, # Handle potential JSON string
-                    instructions=json.loads(db_recipe.instructions) if isinstance(db_recipe.instructions, str) else db_recipe.instructions, # Handle potential JSON string
+                    ingredients=json.loads(db_recipe.ingredients) if isinstance(db_recipe.ingredients, str) else db_recipe.ingredients,
+                    instructions=json.loads(db_recipe.instructions) if isinstance(db_recipe.instructions, str) else db_recipe.instructions,
                     image_url=str(db_recipe.image_url) if db_recipe.image_url else None,
-                    source_url=db_recipe.source_url # Added source_url
+                    source_url=db_recipe.source_url
                 )
 
-            logger.info(f"Applying updates to recipe ID {recipe_id}: {update_data}")
-            
-            # Update the database recipe object
+            logger.info(f"Applying updates to recipe ID {recipe_id} for user {user_id}: {update_data}")
             updated_db_recipe: Optional[RecipeDB] = update_recipe_in_db(db=db, recipe_id=recipe_id, update_data=update_data)
 
-            if not updated_db_recipe:
-                # This case might occur if update_recipe_in_db itself returns None on failure
-                logger.warning(f"Failed to apply update in database for recipe ID {recipe_id}.")
+            if updated_db_recipe:
+                logger.info(f"Successfully updated recipe ID {updated_db_recipe.id} for user {user_id}.")
+                return RecipePydantic(
+                    id=updated_db_recipe.id,
+                    name=updated_db_recipe.name,
+                    ingredients=json.loads(updated_db_recipe.ingredients) if isinstance(updated_db_recipe.ingredients, str) else updated_db_recipe.ingredients, 
+                    instructions=json.loads(updated_db_recipe.instructions) if isinstance(updated_db_recipe.instructions, str) else updated_db_recipe.instructions, 
+                    image_url=str(updated_db_recipe.image_url) if updated_db_recipe.image_url else None,
+                    source_url=updated_db_recipe.source_url
+                )
+            else:
+                logger.warning(f"Failed to update recipe ID {recipe_id} in DB for user {user_id}, or recipe became unavailable.")
                 return None
-
-            logger.info(f"Successfully updated recipe ID {updated_db_recipe.id}.")
-            # Convert the updated DB object back to Pydantic model
-            return RecipePydantic(
-                id=updated_db_recipe.id,
-                name=updated_db_recipe.name,
-                ingredients=json.loads(updated_db_recipe.ingredients) if isinstance(updated_db_recipe.ingredients, str) else updated_db_recipe.ingredients,
-                instructions=json.loads(updated_db_recipe.instructions) if isinstance(updated_db_recipe.instructions, str) else updated_db_recipe.instructions,
-                image_url=str(updated_db_recipe.image_url) if updated_db_recipe.image_url else None,
-                source_url=updated_db_recipe.source_url # Added source_url
-            )
         except Exception as e:
-            logger.exception(f"Error during update of recipe ID {recipe_id}: {e}")
-            db.rollback() # Rollback in case of error during update process
+            logger.exception(f"Error during update of recipe ID {recipe_id} by user {user_id}: {e}")
             return None
         finally:
-            if db:
-                db.close()
-                logger.info(f"Database session closed for update_recipe (ID: {recipe_id}).")
+            db.close()
+            logger.info(f"Database session closed for update_recipe (ID: {recipe_id}, UserID: {user_id}).")
+
 
 # Example Usage (for direct testing of RecipeService, if needed)
 async def main_service_test():

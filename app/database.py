@@ -1,6 +1,6 @@
-from sqlalchemy import create_engine, Column, Integer, String, JSON
+from sqlalchemy import create_engine, Column, Integer, String, JSON, Boolean, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker, Session, relationship
 from typing import List
 from pathlib import Path
 import os
@@ -26,6 +26,16 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
+class UserDB(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    is_active = Column(Boolean, default=True)
+
+    recipes = relationship("RecipeDB", back_populates="owner")
+
 class RecipeDB(Base):
     __tablename__ = "recipes"
 
@@ -35,6 +45,9 @@ class RecipeDB(Base):
     ingredients = Column(JSON)  
     instructions = Column(JSON) 
     image_url = Column(String, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+
+    owner = relationship("UserDB", back_populates="recipes")
 
 def create_db_and_tables():
     Base.metadata.create_all(bind=engine)
@@ -46,13 +59,14 @@ def get_db():
     finally:
         db.close()
 
-def add_recipe_to_db(db: Session, recipe_data: RecipePydantic, source_url: str):
+def add_recipe_to_db(db: Session, recipe_data: RecipePydantic, source_url: str, user_id: int):
     db_recipe = RecipeDB(
         name=recipe_data.name,
         source_url=source_url, 
         ingredients=recipe_data.ingredients, 
         instructions=recipe_data.instructions, 
-        image_url=str(recipe_data.image_url) if recipe_data.image_url else None
+        image_url=str(recipe_data.image_url) if recipe_data.image_url else None,
+        user_id=user_id
     )
     db.add(db_recipe)
     db.commit()
@@ -63,9 +77,10 @@ def get_recipe_by_url(db: Session, url: str) -> RecipeDB | None:
     """Fetches a recipe from the database by its source_url."""
     return db.query(RecipeDB).filter(RecipeDB.source_url == url).first()
 
-def get_all_recipes_from_db(db: Session) -> List[RecipeDB]:
-    """Fetches all recipes from the database."""
-    return db.query(RecipeDB).all()
+def get_all_recipes_from_db(db: Session, user_id: int) -> List[RecipeDB]:
+    """Fetches all recipes for a specific user from the database."""
+    logger.info(f"Fetching all recipes from database for user_id: {user_id}")
+    return db.query(RecipeDB).filter(RecipeDB.user_id == user_id).all()
 
 def delete_recipe_from_db(db: Session, recipe_id: int) -> bool:
     """Deletes a recipe from the database by its ID."""
@@ -98,6 +113,8 @@ def update_recipe_in_db(db: Session, recipe_id: int, update_data: dict) -> Recip
         return db_recipe
     logger.warning(f"Recipe with ID {recipe_id} not found for update.")
     return None
+
+# --- Recipe specific database functions --- #
 
 # Example usage (optional, for testing directly)
 if __name__ == '__main__':
