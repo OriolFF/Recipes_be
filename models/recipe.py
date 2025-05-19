@@ -7,6 +7,7 @@ class Recipe(BaseModel):
     ingredients: List[str]
     instructions: List[str]
     image_url: Optional[HttpUrl] = None
+    source_url: Optional[HttpUrl] = None # Added source URL
     # You can add other fields later if needed, e.g.:
     # prep_time: Optional[str] = None
     # cook_time: Optional[str] = None

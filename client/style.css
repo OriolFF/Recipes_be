@@ -262,6 +262,76 @@ main {
     margin-bottom: 0.5rem;
 }
 
+/* Styles for 'Add Recipe from URL' Section */
+#add-recipe-section {
+    background-color: #f9f9f9;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+#add-recipe-section h2 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: #333;
+}
+
+#addRecipeForm {
+    display: flex;
+    gap: 0.5rem; /* Spacing between input and button */
+    align-items: center; /* Align items vertically */
+}
+
+#newRecipeUrlInput {
+    flex-grow: 1; /* Input field takes available space */
+    padding: 0.75rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+#addRecipeForm button {
+    padding: 0.75rem 1.5rem; /* Match input padding for height */
+    /* Uses existing .button styles, but can be overridden if needed */
+}
+
+.status-message {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    display: none; /* Hidden by default, shown by JS */
+}
+
+.status-message.info {
+    background-color: #e7f3fe;
+    border-left: 5px solid #2196F3; /* Blue for info */
+    color: #2196F3;
+    display: block;
+}
+
+.status-message.success {
+    background-color: #e8f5e9;
+    border-left: 5px solid #4CAF50; /* Green for success */
+    color: #2e7d32;
+    display: block;
+}
+
+.status-message.error {
+    background-color: #ffebee;
+    border-left: 5px solid #f44336; /* Red for error */
+    color: #c62828;
+    display: block;
+}
+
+.status-message.warning {
+    background-color: #fff3e0;
+    border-left: 5px solid #ff9800; /* Orange for warning */
+    color: #e65100;
+    display: block;
+}
+
 .modal-actions {
     margin-top: 1.5rem;
     display: flex;

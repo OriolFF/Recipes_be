@@ -27,11 +27,16 @@ class RecipeService:
             existing_db_recipe: Optional[RecipeDB] = get_recipe_by_url(db=db, url=url)
             if existing_db_recipe:
                 logger.info(f"Recipe for URL '{url}' found in DB (ID: {existing_db_recipe.id}). Returning cached.")
+                # Ensure ingredients/instructions are lists (they are stored as JSON in RecipeDB)
+                ingredients_list = json.loads(existing_db_recipe.ingredients) if isinstance(existing_db_recipe.ingredients, str) else existing_db_recipe.ingredients
+                instructions_list = json.loads(existing_db_recipe.instructions) if isinstance(existing_db_recipe.instructions, str) else existing_db_recipe.instructions
                 return RecipePydantic(
+                    id=existing_db_recipe.id, # Added ID
                     name=existing_db_recipe.name,
-                    ingredients=existing_db_recipe.ingredients,
-                    instructions=existing_db_recipe.instructions,
-                    image_url=existing_db_recipe.image_url,
+                    ingredients=ingredients_list if ingredients_list else [],
+                    instructions=instructions_list if instructions_list else [],
+                    image_url=str(existing_db_recipe.image_url) if existing_db_recipe.image_url else None, # Ensure HttpUrl is converted to str if needed, or handle None
+                    source_url=existing_db_recipe.source_url # Added source_url for cached recipe
                 )
 
             logger.info(f"Recipe for URL '{url}' not in cache. Processing...")
@@ -62,7 +67,19 @@ class RecipeService:
             logger.info(f"Storing recipe '{validated_recipe.name}' to database with source URL '{url}'...")
             db_recipe_obj: RecipeDB = add_recipe_to_db(db=db, recipe_data=validated_recipe, source_url=url)
             logger.info(f"Recipe '{db_recipe_obj.name}' (ID: {db_recipe_obj.id}) stored successfully.")
-            return validated_recipe
+            # Return a Pydantic model constructed from the DB object, which includes the ID
+            # Ingredients/instructions in validated_recipe are already lists from PydanticAI model.
+            # db_recipe_obj stores them as JSON, so if we were reading from db_recipe_obj directly here,
+            # we'd need json.loads like in the cached section. But validated_recipe is fine.
+            # The crucial part is to get the ID from db_recipe_obj.
+            return RecipePydantic(
+                id=db_recipe_obj.id, # Crucial: use the ID from the database object
+                name=validated_recipe.name, # Or db_recipe_obj.name, should be same
+                ingredients=validated_recipe.ingredients,
+                instructions=validated_recipe.instructions,
+                image_url=validated_recipe.image_url, # Or str(db_recipe_obj.image_url)
+                source_url=db_recipe_obj.source_url # Added source_url for new recipe
+            )
 
         except httpx.HTTPStatusError as e_http_status:
             logger.error(f"HTTP Status error for {url}: {e_http_status.response.status_code} - {e_http_status.response.text if e_http_status.response else 'No response body'}", exc_info=True)
@@ -119,7 +136,8 @@ class RecipeService:
                         name=db_recipe.name,
                         ingredients=ingredients_list,
                         instructions=instructions_list,
-                        image_url=db_recipe.image_url if db_recipe.image_url else None
+                        image_url=db_recipe.image_url if db_recipe.image_url else None,
+                        source_url=db_recipe.source_url # Added source_url
                     )
                 )
             logger.info(f"Found {len(pydantic_recipes)} recipes.")
@@ -172,7 +190,8 @@ class RecipeService:
                     name=db_recipe.name,
                     ingredients=json.loads(db_recipe.ingredients) if isinstance(db_recipe.ingredients, str) else db_recipe.ingredients, # Handle potential JSON string
                     instructions=json.loads(db_recipe.instructions) if isinstance(db_recipe.instructions, str) else db_recipe.instructions, # Handle potential JSON string
-                    image_url=str(db_recipe.image_url) if db_recipe.image_url else None
+                    image_url=str(db_recipe.image_url) if db_recipe.image_url else None,
+                    source_url=db_recipe.source_url # Added source_url
                 )
 
             logger.info(f"Applying updates to recipe ID {recipe_id}: {update_data}")
@@ -192,7 +211,8 @@ class RecipeService:
                 name=updated_db_recipe.name,
                 ingredients=json.loads(updated_db_recipe.ingredients) if isinstance(updated_db_recipe.ingredients, str) else updated_db_recipe.ingredients,
                 instructions=json.loads(updated_db_recipe.instructions) if isinstance(updated_db_recipe.instructions, str) else updated_db_recipe.instructions,
-                image_url=str(updated_db_recipe.image_url) if updated_db_recipe.image_url else None
+                image_url=str(updated_db_recipe.image_url) if updated_db_recipe.image_url else None,
+                source_url=updated_db_recipe.source_url # Added source_url
             )
         except Exception as e:
             logger.exception(f"Error during update of recipe ID {recipe_id}: {e}")

@@ -13,9 +13,18 @@
         <h1>Recipe Collection</h1>
     </header>
     <main>
+        <section id="add-recipe-section">
+            <h2>Add New Recipe from URL</h2>
+            <form id="addRecipeForm">
+                <input type="url" id="newRecipeUrlInput" name="recipeUrl" placeholder="Enter recipe URL (e.g., https://www.example.com/recipe)" required>
+                <button type="submit" id="addRecipeFromUrlBtn" class="button">Add Recipe</button>
+            </form>
+            <div id="addRecipeStatus" class="status-message"></div>
+        </section>
+
         <div id="recipes-container" class="recipes-grid">
-            <!-- Recipes will be loaded here by JavaScript -->
             <div class="loading-spinner" id="loading">Loading recipes...</div>
+            <!-- Recipes will be loaded here by JavaScript -->
         </div>
     </main>
 
