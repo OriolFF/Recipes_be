@@ -3,6 +3,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadingIndicator = document.getElementById('loading');
     const BASE_API_URL = 'http://127.0.0.1:8000'; // Backend API base URL
 
+    // Auth Section Elements
+    const authSection = document.getElementById('auth-section');
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    const loginEmailInput = document.getElementById('loginEmail');
+    const loginPasswordInput = document.getElementById('loginPassword');
+    const registerEmailInput = document.getElementById('registerEmail');
+    const registerPasswordInput = document.getElementById('registerPassword');
+    const authStatus = document.getElementById('authStatus');
+    const showRegisterFormLink = document.getElementById('showRegisterFormLink');
+    const showLoginFormLink = document.getElementById('showLoginFormLink');
+
+    // User Controls & App Content
+    const userControls = document.getElementById('user-controls');
+    const userInfoDisplay = document.getElementById('userInfo');
+    const logoutButton = document.getElementById('logoutButton');
+    const appContent = document.getElementById('app-content');
+
     // 'Add Recipe from URL' Form Elements
     const addRecipeForm = document.getElementById('addRecipeForm');
     const newRecipeUrlInput = document.getElementById('newRecipeUrlInput');
@@ -21,10 +39,174 @@ document.addEventListener('DOMContentLoaded', () => {
     const addIngredientBtn = document.getElementById('addIngredientBtn');
     const addInstructionBtn = document.getElementById('addInstructionBtn');
 
-    async function fetchRecipes() {
+    // --- Token Management ---
+    function saveToken(token) {
+        localStorage.setItem('recipe_app_token', token);
+    }
+
+    function getToken() {
+        return localStorage.getItem('recipe_app_token');
+    }
+
+    function removeToken() {
+        localStorage.removeItem('recipe_app_token');
+    }
+
+    function getEmailFromToken(token) {
+        if (!token) return null;
         try {
-            const response = await fetch(`${BASE_API_URL}/getallrecipes`);
+            // Basic JWT decode (payload is the middle part, base64 decoded)
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            return payload.sub; // 'sub' usually holds the username/email
+        } catch (e) {
+            console.error('Error decoding token:', e);
+            return null;
+        }
+    }
+
+    // --- UI State Management ---
+    function updateUIBasedOnAuthState() {
+        const token = getToken();
+        if (token) {
+            authSection.style.display = 'none';
+            appContent.style.display = 'block';
+            userControls.style.display = 'flex'; // Or 'block' depending on your CSS
+            const email = getEmailFromToken(token);
+            userInfoDisplay.textContent = email ? `Logged in as: ${email}` : 'Logged in';
+            fetchRecipes(); // Fetch recipes when logged in
+        } else {
+            authSection.style.display = 'block';
+            appContent.style.display = 'none';
+            userControls.style.display = 'none';
+            userInfoDisplay.textContent = '';
+            recipesContainer.innerHTML = '<p class="loading-spinner">Please log in to see recipes.</p>';
+            if (loadingIndicator) loadingIndicator.style.display = 'none';
+        }
+    }
+
+    // --- Event Handlers for Auth ---
+    if (showRegisterFormLink) {
+        showRegisterFormLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            loginForm.style.display = 'none';
+            registerForm.style.display = 'block';
+            authStatus.textContent = '';
+        });
+    }
+
+    if (showLoginFormLink) {
+        showLoginFormLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            registerForm.style.display = 'none';
+            loginForm.style.display = 'block';
+            authStatus.textContent = '';
+        });
+    }
+
+    if (registerForm) {
+        registerForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const email = registerEmailInput.value.trim();
+            const password = registerPasswordInput.value.trim();
+            authStatus.textContent = 'Registering...';
+            authStatus.style.color = 'inherit';
+
+            try {
+                const response = await fetch(`${BASE_API_URL}/users/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password }),
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Registration failed');
+                }
+                authStatus.textContent = 'Registration successful! Please login.';
+                authStatus.style.color = 'green';
+                registerForm.reset();
+                // Switch to login form
+                registerForm.style.display = 'none';
+                loginForm.style.display = 'block';
+            } catch (error) {
+                authStatus.textContent = `Registration error: ${error.message}`;
+                authStatus.style.color = 'red';
+                console.error('Registration error:', error);
+            }
+        });
+    }
+
+    if (loginForm) {
+        loginForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const email = loginEmailInput.value.trim();
+            const password = loginPasswordInput.value.trim();
+            authStatus.textContent = 'Logging in...';
+            authStatus.style.color = 'inherit';
+
+            // FastAPI's OAuth2PasswordRequestForm expects form data, not JSON
+            const formData = new FormData();
+            formData.append('username', email); // 'username' is the field for email
+            formData.append('password', password);
+
+            try {
+                const response = await fetch(`${BASE_API_URL}/token`, {
+                    method: 'POST',
+                    body: formData, // Send as form data
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Login failed');
+                }
+                saveToken(data.access_token);
+                authStatus.textContent = 'Login successful!';
+                authStatus.style.color = 'green';
+                loginForm.reset();
+                updateUIBasedOnAuthState();
+            } catch (error) {
+                authStatus.textContent = `Login error: ${error.message}`;
+                authStatus.style.color = 'red';
+                console.error('Login error:', error);
+            }
+        });
+    }
+
+    if (logoutButton) {
+        logoutButton.addEventListener('click', () => {
+            removeToken();
+            updateUIBasedOnAuthState();
+            authStatus.textContent = 'You have been logged out.';
+            authStatus.style.color = 'green';
+            // Ensure login form is shown by default on logout
+            loginForm.style.display = 'block'; 
+            registerForm.style.display = 'none';
+        });
+    }
+
+    async function fetchRecipes() {
+        const token = getToken();
+        if (!token) {
+            updateUIBasedOnAuthState(); // Should ensure user is prompted to login
+            return;
+        }
+        if (loadingIndicator) loadingIndicator.style.display = 'block';
+
+        try {
+            const response = await fetch(`${BASE_API_URL}/getallrecipes`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
             if (!response.ok) {
+                if (response.status === 401) {
+                    console.warn('Unauthorized. Token might be invalid or expired.');
+                    removeToken();
+                    updateUIBasedOnAuthState();
+                    authStatus.textContent = 'Session expired. Please login again.';
+                    authStatus.style.color = 'red';
+                    return;
+                }
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             const recipes = await response.json();
@@ -293,6 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getToken()}`,
                     },
                     body: JSON.stringify(updatePayload),
                 });
@@ -319,6 +502,9 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(`${BASE_API_URL}/deleterecipe/${recipeId}`, {
                 method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${getToken()}`,
+                },
             });
 
             if (!response.ok) {
@@ -366,6 +552,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getToken()}`,
                         'Accept': 'application/json' // Expect a JSON response
                     },
                     body: JSON.stringify({ url: recipeUrl })
@@ -435,6 +622,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Initial fetch of recipes
-    fetchRecipes();
+    // Initial UI setup based on auth state
+    updateUIBasedOnAuthState();
+
+    // Initial fetch of recipes is now handled by updateUIBasedOnAuthState if logged in
+    // fetchRecipes(); // Remove this direct call
 });

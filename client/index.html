@@ -11,20 +11,61 @@
 <body>
     <header>
         <h1>Recipe Collection</h1>
+        <div id="user-controls" style="display: none;">
+            <span id="userInfo"></span>
+            <button id="logoutButton" class="button secondary-button">Logout</button>
+        </div>
     </header>
+
     <main>
-        <section id="add-recipe-section">
-            <h2>Add New Recipe from URL</h2>
-            <form id="addRecipeForm">
-                <input type="url" id="newRecipeUrlInput" name="recipeUrl" placeholder="Enter recipe URL (e.g., https://www.example.com/recipe)" required>
-                <button type="submit" id="addRecipeFromUrlBtn" class="button">Add Recipe</button>
-            </form>
-            <div id="addRecipeStatus" class="status-message"></div>
+        <section id="auth-section">
+            <h2>Login / Register</h2>
+            <div class="auth-forms-container">
+                <form id="loginForm" class="auth-form">
+                    <h3>Login</h3>
+                    <div>
+                        <label for="loginEmail">Email:</label>
+                        <input type="email" id="loginEmail" name="email" required>
+                    </div>
+                    <div>
+                        <label for="loginPassword">Password:</label>
+                        <input type="password" id="loginPassword" name="password" required>
+                    </div>
+                    <button type="submit" class="button">Login</button>
+                    <p>Don't have an account? <a href="#" id="showRegisterFormLink">Register here</a></p>
+                </form>
+
+                <form id="registerForm" class="auth-form" style="display: none;">
+                    <h3>Register</h3>
+                    <div>
+                        <label for="registerEmail">Email:</label>
+                        <input type="email" id="registerEmail" name="email" required>
+                    </div>
+                    <div>
+                        <label for="registerPassword">Password:</label>
+                        <input type="password" id="registerPassword" name="password" required>
+                    </div>
+                    <button type="submit" class="button">Register</button>
+                    <p>Already have an account? <a href="#" id="showLoginFormLink">Login here</a></p>
+                </form>
+            </div>
+            <div id="authStatus" class="status-message"></div>
         </section>
 
-        <div id="recipes-container" class="recipes-grid">
-            <div class="loading-spinner" id="loading">Loading recipes...</div>
-            <!-- Recipes will be loaded here by JavaScript -->
+        <div id="app-content" style="display: none;">
+            <section id="add-recipe-section">
+                <h2>Add New Recipe from URL</h2>
+                <form id="addRecipeForm">
+                    <input type="url" id="newRecipeUrlInput" name="recipeUrl" placeholder="Enter recipe URL (e.g., https://www.example.com/recipe)" required>
+                    <button type="submit" id="addRecipeFromUrlBtn" class="button">Add Recipe</button>
+                </form>
+                <div id="addRecipeStatus" class="status-message"></div>
+            </section>
+
+            <div id="recipes-container" class="recipes-grid">
+                <div class="loading-spinner" id="loading">Loading recipes...</div>
+                <!-- Recipes will be loaded here by JavaScript -->
+            </div>
         </div>
     </main>
 

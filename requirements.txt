@@ -1,6 +1,6 @@
 fastapi
 sqlalchemy
-pydantic-ai
+pydantic-ai==0.2.4
 uvicorn[standard]
 httpx
 pytest
