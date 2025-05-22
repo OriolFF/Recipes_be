@@ -134,16 +134,17 @@ async def get_all_recipes_endpoint(
 @app.delete("/deleterecipe/{recipe_id}", status_code=200)
 async def delete_recipe_endpoint(recipe_id: int, current_user: UserDB = Depends(get_current_active_user), service: RecipeService = Depends(RecipeService), db: Session = Depends(get_db)):
     """Deletes a specific recipe by its ID, ensuring ownership."""
-    logger.info(f"BACKEND: Received request to delete recipe with ID: {recipe_id} by user {current_user.email}")
+    user_email_for_logging = current_user.email  # Cache email
+    logger.info(f"BACKEND: Received request to delete recipe with ID: {recipe_id} by user {user_email_for_logging}")
     
     # RecipeService will handle the ownership check and deletion logic
     success = service.delete_recipe(recipe_id=recipe_id, user_id=current_user.id, db_session_generator=lambda: iter([db]))
     
     if not success:
-        logger.warning(f"BACKEND: Recipe ID {recipe_id} not found, not owned by user {current_user.email}, or failed to delete.")
+        logger.warning(f"BACKEND: Recipe ID {recipe_id} not found, not owned by user {user_email_for_logging}, or failed to delete.")
         raise HTTPException(status_code=404, detail=f"Recipe with ID {recipe_id} not found or could not be deleted.")
     
-    logger.info(f"BACKEND: Successfully deleted recipe ID {recipe_id} for user {current_user.email}.")
+    logger.info(f"BACKEND: Successfully deleted recipe ID {recipe_id} for user {user_email_for_logging}.")
     return {"message": f"Recipe with ID {recipe_id} deleted successfully."}
 
 @app.put("/recipes/{recipe_id}", response_model=RecipePydantic)

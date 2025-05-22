@@ -101,9 +101,7 @@ class RecipeService:
             logger.exception(f"An unexpected error occurred during recipe processing for {url}: {e_general}")
             return None
         finally:
-            if db:
-                db.close()
-                logger.info(f"Database session closed for URL: {url}, user_id: {user_id}")
+            logger.info(f"Database session for URL: {url}, user_id: {user_id} will be closed by FastAPI dependency manager.")
 
     async def get_all_recipes(self, user_id: int, db_session_generator = get_db) -> List[RecipePydantic]:
         """Fetches all recipes for a specific user from the database."""
@@ -156,9 +154,7 @@ class RecipeService:
             logger.exception(f"An unexpected error occurred while fetching recipes for user_id {user_id}: {e_general}")
             return [] # Return empty list on error
         finally:
-            if db:
-                db.close()
-                logger.info(f"Database session closed for get_all_recipes (user_id: {user_id}).")
+            logger.info(f"Database session for get_all_recipes (user_id: {user_id}) will be closed by FastAPI dependency manager.")
 
     def delete_recipe(self, recipe_id: int, user_id: int, db_session_generator=get_db) -> bool:
         """Deletes a recipe by its ID, ensuring ownership."""
@@ -184,8 +180,7 @@ class RecipeService:
             logger.exception(f"Error during deletion of recipe ID {recipe_id} by user_id {user_id}: {e}")
             return False
         finally:
-            db.close()
-            logger.info(f"Database session closed for delete_recipe (ID: {recipe_id}, UserID: {user_id}).")
+            logger.info(f"Database session for delete_recipe (ID: {recipe_id}, UserID: {user_id}) will be closed by FastAPI dependency manager.")
 
     def update_recipe(self, recipe_id: int, user_id: int, recipe_update_data: RecipeUpdate, db_session_generator=get_db) -> Optional[RecipePydantic]:
         """Updates an existing recipe by its ID, ensuring ownership."""
@@ -233,8 +228,7 @@ class RecipeService:
             logger.exception(f"Error during update of recipe ID {recipe_id} by user {user_id}: {e}")
             return None
         finally:
-            db.close()
-            logger.info(f"Database session closed for update_recipe (ID: {recipe_id}, UserID: {user_id}).")
+            logger.info(f"Database session for update_recipe (ID: {recipe_id}, UserID: {user_id}) will be closed by FastAPI dependency manager.")
 
 
 # Example Usage (for direct testing of RecipeService, if needed)
