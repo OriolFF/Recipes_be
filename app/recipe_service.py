@@ -20,12 +20,27 @@ class RecipeService:
         self.pydantic_model_for_validation = agent_output_model
 
     async def process_url_and_store_recipe(self, url: str, user_id: int, db_session_generator = get_db) -> Optional[RecipePydantic]:
+        logger.critical("--- MODIFIED process_url_and_store_recipe IS RUNNING ---") # VERY OBVIOUS LOG
         logger.info(f"Starting recipe processing for URL: {url} by user_id: {user_id}")
         
         db = next(db_session_generator())
         try:
+            logger.info(f"Attempting to process URL: '{url}' (length: {len(url)}). Represented: {repr(url)}")
+            try:
+                all_recipes_in_db = db.query(RecipeDB.id, RecipeDB.source_url).all()
+                log_recipes = [(r_id, r_url, len(r_url), repr(r_url)) for r_id, r_url in all_recipes_in_db]
+                logger.info(f"DB content before check. Recipes found: {len(log_recipes)}. Details (ID, URL, len, repr): {log_recipes}")
+            except Exception as e_log_query:
+                logger.error(f"Error querying all recipes for logging: {e_log_query}")
+
             logger.info(f"Checking cache for URL: {url}")
             existing_db_recipe: Optional[RecipeDB] = get_recipe_by_url(db=db, url=url)
+
+            if existing_db_recipe:
+                logger.info(f"FOUND existing recipe for URL '{url}'. DB record ID: {existing_db_recipe.id}, DB source_url: '{existing_db_recipe.source_url}' (length: {len(existing_db_recipe.source_url)}). Represented: {repr(existing_db_recipe.source_url)}")
+            else:
+                logger.info(f"DID NOT FIND existing recipe for URL '{url}' during pre-check.")
+            
             if existing_db_recipe:
                 logger.info(f"Recipe for URL '{url}' found in DB (ID: {existing_db_recipe.id}). Returning cached.")
                 ingredients_list = json.loads(existing_db_recipe.ingredients) if isinstance(existing_db_recipe.ingredients, str) else existing_db_recipe.ingredients

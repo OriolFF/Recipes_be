@@ -10,14 +10,19 @@
 </head>
 <body>
     <header>
-        <h1>Recipe Collection</h1>
-        <div id="user-controls" style="display: none;">
-            <span id="userInfo"></span>
-            <button id="logoutButton" class="button secondary-button">Logout</button>
+        <div class="container">
+            <h1>Recipe Collection</h1>
+            <div id="user-and-theme-controls">
+                <div id="user-controls" style="display: none;">
+                    <span id="userInfo"></span>
+                    <button id="logoutButton" class="button secondary-button">Logout</button>
+                </div>
+                <button id="themeToggleBtn" aria-label="Toggle dark mode">🌙</button> <!-- Simple emoji toggle for now -->
+            </div>
         </div>
     </header>
 
-    <main>
+    <main class="container">
         <section id="auth-section">
             <h2>Login / Register</h2>
             <div class="auth-forms-container">
@@ -61,6 +66,13 @@
                 </form>
                 <div id="addRecipeStatus" class="status-message"></div>
             </section>
+
+            <div class="view-controls">
+                <button id="viewToggleBtn" aria-label="Toggle list/grid view">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="icon-grid"><path d="M3 3h8v8H3zm0 10h8v8H3zm10-10h8v8h-8zm0 10h8v8h-8z"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="icon-list" style="display:none;"><path d="M3 4h18v2H3zm0 7h18v2H3zm0 7h18v2H3z"/></svg>
+                </button>
+            </div>
 
             <div id="recipes-container" class="recipes-grid">
                 <div class="loading-spinner" id="loading">Loading recipes...</div>
