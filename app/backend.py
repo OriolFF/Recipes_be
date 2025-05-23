@@ -15,6 +15,8 @@ from .database import create_db_and_tables, SessionLocal, get_db, UserDB
 from sqlalchemy.orm import Session
 from .utils.logger_config import get_app_logger
 from .auth import create_access_token, verify_password, ACCESS_TOKEN_EXPIRE_MINUTES, get_current_active_user, get_user_by_email, create_user
+from fastapi.staticfiles import StaticFiles
+import os
 
 load_dotenv()
 
@@ -167,3 +169,12 @@ async def update_recipe_endpoint(recipe_id: int, recipe_data: RecipeUpdate, curr
 async def health_check():
     logger.info("Health check endpoint was called.")
     return {"status": "healthy"}
+
+# Determine the path to the 'client' directory
+# backend.py is in 'app' directory, client is sibling to 'app'
+CLIENT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "client")
+
+# Mount static files. This should be added after all API routes
+# so that API routes are matched first.
+# html=True allows serving index.html for the root path '/'.
+app.mount("/", StaticFiles(directory=CLIENT_DIR, html=True), name="static_client_files")
