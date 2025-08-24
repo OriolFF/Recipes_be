@@ -1,0 +1,2 @@
+# Command to start the FastAPI server
+uvicorn app.backend:app --reload
